@@ -1,5 +1,6 @@
 from os import path
 from dataclasses import dataclass
+import os
 
 @dataclass
 class Hierarchy:
@@ -19,3 +20,13 @@ def get_hierarchy(fc_folder):
         data=data_path,
         reaches_file=reaches_file_path
     )
+
+def is_file_carrier(fc_folder):
+    hier = get_hierarchy(fc_folder)
+    try:
+        if not path.isdir(hier.data):
+            return False
+    except Exception:
+        return False
+
+    return True
