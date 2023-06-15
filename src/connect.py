@@ -25,7 +25,7 @@ def connect_folder(aap_client, folder, duration=300):
     if len(reaches) == 0:
         print("You're the only one using this file-carrier")
         print("Connect to another node to establish a connection")
-        print("or manually add node EID's in {}".format(hier.reaches_file))
+        print("or manually add node EIDs in {}".format(hier.reaches_file))
         exit(10)
 
     msg = bytes(ConfigMessage(
