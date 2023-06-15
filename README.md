@@ -20,6 +20,12 @@ Use CLI
 ./src/main.py
 ```
 
+Start Daemon
+
+```
+./src/daemon.py
+```
+
 ## Inspired by
 
 * [Dead Drops](https://deaddrops.com/) : An anonymous, offline, peer to peer file-sharing network in public space
