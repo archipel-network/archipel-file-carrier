@@ -17,8 +17,12 @@ impl FileCarrierHierarchy {
         }
     }
 
-    pub fn is_file_carrier(path: &Path) -> io::Result<bool> {
+    pub fn is_file_carrier(&self) -> io::Result<bool> {
+        Ok(self.data.try_exists()? && self.root.try_exists()? && self.reaches_file.try_exists()?)
+    }
+
+    pub fn folder_is_file_carrier(path: &Path) -> io::Result<bool> {
         let hierarchy = Self::new(path);
-        hierarchy.data.try_exists()
+        hierarchy.is_file_carrier()
     }
 }
