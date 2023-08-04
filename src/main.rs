@@ -1,3 +1,4 @@
+mod init;
 mod hierarchy;
 
 fn main() {
