@@ -4,7 +4,8 @@ pub struct FileCarrierHierarchy {
     fc: PathBuf,
     root: PathBuf,
     data: PathBuf,
-    reaches_file: PathBuf
+    reaches_file: PathBuf,
+    connected_file: PathBuf
 }
 
 impl FileCarrierHierarchy {
@@ -16,11 +17,13 @@ impl FileCarrierHierarchy {
         let root = path.join(".bundles");
         let data = root.join("data");
         let reaches_file = root.join("reaches");
+        let connected_file = root.join(".connected");
         Self {
             fc: path.into(),
             root,
             data,
             reaches_file,
+            connected_file
         }
     }
 
@@ -36,9 +39,13 @@ impl FileCarrierHierarchy {
         &self.reaches_file
     }
 
+    pub fn connected_file(&self) -> &Path {
+        &self.connected_file
+    }
+
     /// Returns a `Ok(true)` if the [FileCarrierHierarchy] already exists
     pub fn try_exists(&self) -> io::Result<bool> {
-        Ok(self.data.try_exists()? && self.root.try_exists()? && self.reaches_file.try_exists()?)
+        Ok(self.data.try_exists()? && self.root.try_exists()? && self.reaches_file.try_exists()? && self.connected_file.try_exists()?)
     }
 
     /// Returns a `Ok(true)` if the provided [&Path] points to an existing [FileCarrierHierarchy]
@@ -48,7 +55,6 @@ impl FileCarrierHierarchy {
     pub fn folder_is_file_carrier(path: &Path) -> io::Result<bool> {
         let hierarchy = Self::new(path);
         hierarchy.try_exists()
-    
     }
 
     /// Actually creates the hierarchy in the file system

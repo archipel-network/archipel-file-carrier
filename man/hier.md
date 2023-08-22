@@ -4,6 +4,8 @@
 
 `.bundles/reaches` Text file of Node EID reached one day by this file-carrier (one per line, most recent at the end of the file)
 
+`.bundles/.connected` Text file containing the current Node EID connected
+
 `.bundles/data/` Folder containing bundles carried
 
 `.bundles/data/*.bundle7` File containing a bundle (version 7)

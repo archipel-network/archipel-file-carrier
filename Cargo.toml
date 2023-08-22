@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 rusb = "0.9.2"
+thiserror = "1.0.46"
 ud3tn_aap = {git = "https://github.com/EpicKiwi/rust-ud3tn.git"}

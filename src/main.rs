@@ -1,3 +1,5 @@
+mod error;
+mod register;
 mod init;
 mod hierarchy;
 
