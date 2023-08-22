@@ -6,7 +6,7 @@ use crate::{hierarchy::FileCarrierHierarchy, error::FileCarrierError};
 /// Register a folder to a node
 /// # Argument
 ///
-/// * `aap_agent` - A [&mut Agent] to tests the existence of a [Agent]
+/// * `aap_agent` - A [&mut Agent] to send bundle through
 /// * `folder` - The folder [&Path] to register
 /// * `duration` - The duration of the connection
 fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path, duration: Duration) -> Result<(), FileCarrierError> {
