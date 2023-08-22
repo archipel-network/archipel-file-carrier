@@ -1,4 +1,5 @@
 mod error;
+mod unregister;
 mod register;
 mod init;
 mod hierarchy;
