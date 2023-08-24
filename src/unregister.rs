@@ -8,7 +8,7 @@ use crate::{hierarchy::FileCarrierHierarchy, error::FileCarrierError};
 ///
 /// * `aap_agent` - A [&mut Agent] to send bundle through
 /// * `folder` - The folder [&Path] to unregister
-fn unregister_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path) -> Result<(), FileCarrierError> {
+pub fn unregister_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path) -> Result<(), FileCarrierError> {
     let hierarchy = FileCarrierHierarchy::new(&folder);
 
     if !hierarchy.try_exists()? {
