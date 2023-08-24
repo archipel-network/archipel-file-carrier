@@ -1,6 +1,8 @@
-use std::{path::Path, io, fs::{self}, env};
+use std::{path::Path, io::{self, Write}, fs::File};
 
 use crate::hierarchy::FileCarrierHierarchy;
+
+const README: &str = include_str!("templates/readme.txt");
 
 /// Initialize a File Carrier hierarchy
 /// # Arguments
@@ -16,10 +18,7 @@ pub fn initialize_file_carrier(path: &Path) -> io::Result<()>{
 
     hierarchy.create_hierarchy()?;
 
-    fs::copy(
-        env::current_dir()?.join("templates/readme.txt"),
-        hierarchy.root().join("readme.txt")
-    )?;
+    File::create(hierarchy.root().join("readme.txt"))?.write_all(README.as_bytes())?;
 
     println!("File carrier initialized in {}", path.canonicalize()?.display());
 

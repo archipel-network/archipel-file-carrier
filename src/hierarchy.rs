@@ -1,7 +1,6 @@
 use std::{path::{Path, PathBuf}, io, fs::{create_dir_all, File}};
 
 pub struct FileCarrierHierarchy {
-    fc: PathBuf,
     root: PathBuf,
     data: PathBuf,
     reaches_file: PathBuf,
@@ -19,7 +18,6 @@ impl FileCarrierHierarchy {
         let reaches_file = root.join("reaches");
         let connected_file = root.join(".connected");
         Self {
-            fc: path.into(),
             root,
             data,
             reaches_file,
@@ -57,10 +55,20 @@ impl FileCarrierHierarchy {
         hierarchy.try_exists()
     }
 
-    /// Actually creates the hierarchy in the file system
-    pub fn make_hierarchy(&self) -> io::Result<()> {
+    /// Creates the hierarchy in the file system
+    /// This function will create the hierarchy if it does not exist, and will truncate it if it does.
+    pub fn create_hierarchy(&self) -> io::Result<()> {
         create_dir_all(self.data.to_owned())?;
         File::create(self.reaches_file.to_owned())?;
+        Ok(())
+    }
+
+    /// Creates the hierarchy in the file system
+    /// This function will create the hierarchy if it does not exist, and will truncate it if it does.
+    pub fn create(path: &Path) -> io::Result<()> {
+        let hierarchy = Self::new(path);
+        create_dir_all(hierarchy.data.to_owned())?;
+        File::create(hierarchy.reaches_file.to_owned())?;
         Ok(())
     }
 }

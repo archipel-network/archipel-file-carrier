@@ -9,3 +9,6 @@ edition = "2021"
 rusb = "0.9.2"
 thiserror = "1.0.46"
 ud3tn-aap = {git = "https://github.com/EpicKiwi/rust-ud3tn.git"}
+[lib]
+name = "file_carrier"
+path = "src/lib.rs"
