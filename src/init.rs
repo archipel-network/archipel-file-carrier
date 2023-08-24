@@ -6,16 +6,15 @@ use crate::hierarchy::FileCarrierHierarchy;
 /// # Arguments
 ///
 /// * `path` - A [&Path] leading to the folder which will contains the `.bundles` directory
-/// * `force` - A [bool] to overwrite the hierarchy if it already exists
-pub fn initialize_file_carrier(path: &Path, force: bool) -> io::Result<()>{
+pub fn initialize_file_carrier(path: &Path) -> io::Result<()>{
     let hierarchy = FileCarrierHierarchy::new(path);
 
-    if hierarchy.try_exists()? && !force{
+    if hierarchy.try_exists()? {
         println!("{:?} is already a file carrier", path);
         return Ok(());
     }
 
-    hierarchy.make_hierarchy()?;
+    hierarchy.create_hierarchy()?;
 
     fs::copy(
         env::current_dir()?.join("templates/readme.txt"),
@@ -36,7 +35,7 @@ mod tests {
     #[test]
     fn initialize_fc() {
         let current_dir = env::current_dir().unwrap();
-        let _ = initialize_file_carrier(&current_dir, false);
+        let _ = initialize_file_carrier(&current_dir);
 
         let bundle_path = current_dir.join(".bundles");
         let data_path = current_dir.join(".bundles/data");
