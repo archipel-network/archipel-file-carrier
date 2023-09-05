@@ -32,32 +32,61 @@ pub fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path,
         }
     }
 
-    if reaches.len() == 1 {
+    if reaches.len() <= 1 {
         println!("You're the only one using this file-carrier");
         println!("Connect to another node to establish a connection");
-        println!("or manually add node EID's in {}", hierarchy.reaches_file().display())
+        println!("or manually add node EID's in {}", hierarchy.reaches_file().display());
     }
+    else {
+        let msg = ud3tn_aap::config::ConfigBundle::AddContact {
+            eid: reaches[1].clone(),
+            reliability: None,
+            cla_address: format!("file:{}", hierarchy.data().canonicalize()?.to_str().unwrap()),
+            reaches_eid: reaches[1..reaches.len()].to_vec(),
+            contacts: vec![Contact { start: SystemTime::now(), end: SystemTime::now() + duration, data_rate: ContactDataRate::Unlimited }],
+        };
 
-    let msg = ud3tn_aap::config::ConfigBundle::AddContact {
-        eid: reaches[1].clone(),
-        reliability: None,
-        cla_address: format!("file:{}", hierarchy.data().canonicalize()?.to_str().unwrap()),
-        reaches_eid: reaches[1..reaches.len()].to_vec(),
-        contacts: vec![Contact { start: SystemTime::now(), end: SystemTime::now() + duration, data_rate: ContactDataRate::Unlimited }],
-    };
+        aap_agent.send_bundle(current_node.clone() + "/config", &msg.to_bytes())?;
 
-    let mut reaches_file = File::create(hierarchy.reaches_file())?;
+        println!("Connected to node {} for {} seconds", current_node, duration.as_secs());
 
-    let reaches_concat = reaches.join("\n");
-
-    reaches_file.write_all(reaches_concat.as_bytes())?;
-
-    let mut connected_file = File::create(hierarchy.connected_file())?;
-    connected_file.write_all(reaches[1].as_bytes())?;
-
-    aap_agent.send_bundle(current_node.clone() + "/config", &msg.to_bytes())?;
+        let mut connected_file = File::create(hierarchy.connected_file())?;
+        connected_file.write_all(reaches[1].as_bytes())?;
+    }
     
-    println!("Connected to node {} for {} seconds", current_node, duration.as_secs());
-
+    let mut reaches_file = File::create(hierarchy.reaches_file())?;
+    
+    let reaches_concat = reaches.join("\n");
+    
+    reaches_file.write_all(reaches_concat.as_bytes())?;
+    
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{env, fs, os::unix::net::UnixStream, time::Duration};
+
+    use uuid::Uuid;
+
+    use crate::{init::initialize_file_carrier, hierarchy::FileCarrierHierarchy, register::register_folder};
+
+    #[test]
+    fn initialize_fc() {
+        let current_dir = env::current_dir().unwrap();
+        let fc = FileCarrierHierarchy::new(&current_dir);
+        let _ = initialize_file_carrier(&current_dir);
+
+        let mut agent = ud3tn_aap::Agent::connect(
+            UnixStream::connect("/run/archipel-core/archipel-core.socket").expect("Unix stream connection failure"),
+            "file-carrier/".to_owned() + &Uuid::new_v4().to_string(),
+        )
+        .expect("u3dtn agent connection failure");
+
+        let res = register_folder(&mut agent, &current_dir, Duration::from_secs(300));
+        
+        let _ = fs::remove_dir_all(fc.root());
+
+        res.expect("Failed at registration");
+    }
 }
