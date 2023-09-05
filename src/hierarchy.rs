@@ -43,7 +43,7 @@ impl FileCarrierHierarchy {
 
     /// Returns a `Ok(true)` if the [FileCarrierHierarchy] already exists
     pub fn try_exists(&self) -> io::Result<bool> {
-        Ok(self.data.try_exists()? && self.root.try_exists()? && self.reaches_file.try_exists()? && self.connected_file.try_exists()?)
+        Ok(self.data.try_exists()? && self.root.try_exists()?)
     }
 
     /// Returns a `Ok(true)` if the provided [&Path] points to an existing [FileCarrierHierarchy]
