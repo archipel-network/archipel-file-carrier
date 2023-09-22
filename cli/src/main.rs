@@ -1,15 +1,11 @@
 use clap::{Parser, Subcommand};
-use file_carrier::{init::initialize_file_carrier, register::register_folder, unregister::unregister_folder};
+use file_carrier::{init::initialize_file_carrier, register::register_folder, unregister::unregister_folder, default_path};
 use std::{
     os::unix::net::UnixStream,
     path::PathBuf,
-    time::Duration, str::FromStr,
+    time::Duration,
 };
 use uuid::Uuid;
-
-extern "C" {
-    fn geteuid() -> u32;
-}
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -41,13 +37,6 @@ enum Commands {
         #[arg(default_value = ".")]
         folder: PathBuf,
     },
-}
-
-#[inline]
-fn default_path() -> PathBuf {
-    unsafe {
-        PathBuf::from_str(&format!("/run/user/{}/archipel-core/archipel-core.socket", geteuid())).unwrap()
-    }
 }
 
 fn main() {
