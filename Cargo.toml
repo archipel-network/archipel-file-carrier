@@ -1,22 +1,8 @@
-[package]
-name = "archipel-file-carrier"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-clap = { version = "4.3.24", features = ["derive"] }
-rusb = "0.9.2"
-thiserror = "1.0.46"
-ud3tn-aap = {git = "https://github.com/EpicKiwi/rust-ud3tn.git"}
-uuid = { version = "1.4.1", features = ["v4", "fast-rng"] }
-
-[lib]
-name = "file_carrier"
-path = "src/lib.rs"
-
-[[bin]]
-name = "file-carrier"
-path = "src/bin/cli.rs"
-version = "0.1.0"
+members = [
+    "daemon",
+    "cli",
+    "file_carrier",
+]

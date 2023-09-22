@@ -16,14 +16,12 @@ pub fn unregister_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Pat
         return Err(FileCarrierError::NotAFileCarrier(folder.to_path_buf()));
     }
 
-    let current_node = aap_agent.node_eid.clone();
-
     let mut connected_eid = String::new();
     File::open(hierarchy.connected_file())?.read_to_string(&mut connected_eid)?;
     
     let msg = ud3tn_aap::config::ConfigBundle::DeleteContact(connected_eid);
-    
-    aap_agent.send_bundle(current_node.clone() + "/config", &msg.to_bytes())?;
+    aap_agent.send_config(msg)?;
+
     fs::remove_file(hierarchy.connected_file())?;
     
     println!("Unregistered {}", folder.display());

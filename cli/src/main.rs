@@ -3,9 +3,13 @@ use file_carrier::{init::initialize_file_carrier, register::register_folder, unr
 use std::{
     os::unix::net::UnixStream,
     path::PathBuf,
-    time::Duration,
+    time::Duration, str::FromStr,
 };
 use uuid::Uuid;
+
+extern "C" {
+    fn geteuid() -> u32;
+}
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -23,8 +27,8 @@ enum Commands {
     },
     /// Registers a folder to a node through an AAP agent connection. Duration is in seconds
     Register {
-        #[arg(short, long, default_value = "/run/archipel-core/archipel-core.socket")]
-        socket: PathBuf,
+        #[arg(short, long)]
+        socket: Option<PathBuf>,
         #[arg(default_value = ".")]
         folder: PathBuf,
         #[arg(short, long, default_value_t = 300)]
@@ -32,11 +36,18 @@ enum Commands {
     },
     /// Unegisters a folder from a node through an AAP agent
     Unregister {
-        #[arg(short, long, default_value = "/run/archipel-core/archipel-core.socket")]
-        socket: PathBuf,
+        #[arg(short, long)]
+        socket: Option<PathBuf>,
         #[arg(default_value = ".")]
         folder: PathBuf,
     },
+}
+
+#[inline]
+fn default_path() -> PathBuf {
+    unsafe {
+        PathBuf::from_str(&format!("/run/user/{}/archipel-core/archipel-core.socket", geteuid())).unwrap()
+    }
 }
 
 fn main() {
@@ -52,7 +63,7 @@ fn main() {
             duration,
         } => {
             let mut agent = ud3tn_aap::Agent::connect(
-                UnixStream::connect(socket).expect("Unix stream connection failure"),
+                UnixStream::connect(socket.as_ref().unwrap_or(&default_path())).expect("Unix stream connection failure"),
                 "file-carrier/".to_owned() + &Uuid::new_v4().to_string(),
             )
             .expect("u3dtn agent connection failure");
@@ -62,7 +73,7 @@ fn main() {
         }
         Commands::Unregister { socket, folder } => {
             let mut agent = ud3tn_aap::Agent::connect(
-                UnixStream::connect(socket).expect("Unix stream connection failure"),
+                UnixStream::connect(socket.as_ref().unwrap_or(&default_path())).expect("Unix stream connection failure"),
                 "file-carrier/".to_owned() + &Uuid::new_v4().to_string(),
             )
             .expect("u3dtn agent connection failure");

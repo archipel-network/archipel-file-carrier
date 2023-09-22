@@ -1,4 +1,4 @@
-use std::{path::Path, time::{Duration, SystemTime}, io::{Read, BufReader}, io::{Write, BufRead}, fs::File};
+use std::{path::Path, time::{Duration, SystemTime}, io::BufReader, io::{Write, BufRead, Read}, fs::File};
 use ud3tn_aap::{Agent, config::{Contact, ContactDataRate}};
 
 use crate::{hierarchy::FileCarrierHierarchy, error::FileCarrierError};
@@ -46,7 +46,7 @@ pub fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path,
             contacts: vec![Contact { start: SystemTime::now(), end: SystemTime::now() + duration, data_rate: ContactDataRate::Unlimited }],
         };
 
-        aap_agent.send_bundle(current_node.clone() + "/config", &msg.to_bytes())?;
+        aap_agent.send_config(msg)?;
 
         println!("Connected to node {} for {} seconds", current_node, duration.as_secs());
 
@@ -66,9 +66,6 @@ pub fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path,
 #[cfg(test)]
 mod tests {
     use std::{env, fs, os::unix::net::UnixStream, time::Duration};
-
-    use uuid::Uuid;
-
     use crate::{init::initialize_file_carrier, hierarchy::FileCarrierHierarchy, register::register_folder};
 
     #[test]
@@ -79,7 +76,7 @@ mod tests {
 
         let mut agent = ud3tn_aap::Agent::connect(
             UnixStream::connect("/run/archipel-core/archipel-core.socket").expect("Unix stream connection failure"),
-            "file-carrier/".to_owned() + &Uuid::new_v4().to_string(),
+            "file-carrier/105b4168-a93e-459b-8672-09509db759cc".to_owned(),
         )
         .expect("u3dtn agent connection failure");
 
