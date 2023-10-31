@@ -58,7 +58,7 @@ fn main() {
             .expect("u3dtn agent connection failure");
 
             register_folder(&mut agent, folder, Duration::from_secs(*duration))
-                .expect("Folder registration failure")
+                .expect("Folder registration failure");
         }
         Commands::Unregister { socket, folder } => {
             let mut agent = ud3tn_aap::Agent::connect(
