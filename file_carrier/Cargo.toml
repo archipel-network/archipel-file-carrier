@@ -1,0 +1,10 @@
+[package]
+name = "file_carrier"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+thiserror = "1.0.46"
+ud3tn-aap = {git = "https://github.com/EpicKiwi/rust-ud3tn.git"}

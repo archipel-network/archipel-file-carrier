@@ -1,6 +1,6 @@
 # Archipel File Carrier
 
-*Use usb sticks to carry bundles*
+*Use usb sticks to carry bundles.*
 
 This is a daemon watching drive connections using dbus then connect folder to [Archipel Core](https://github.com/EpicKiwi/archipel-core) File CLA for bundle exchange.
 
@@ -8,16 +8,16 @@ This is a daemon watching drive connections using dbus then connect folder to [A
 
 Clone this repository
 
-Install dependancies
-
-```
-pip install -r requirements.txt
-```
-
 Use CLI
 
+```sh
+cargo run --bin file-carrier
 ```
-./src/main.py
+
+Use daemon
+
+```sh
+cargo run --bin file-carrier-daemon
 ```
 
 ## Inspired by
