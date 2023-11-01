@@ -9,11 +9,12 @@ use crate::{hierarchy::FileCarrierHierarchy, error::FileCarrierError};
 /// * `aap_agent` - A [&mut Agent] to send bundle through
 /// * `folder` - The folder [&Path] to register
 /// * `duration` - The duration of the connection
-pub fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path, duration: Duration) -> Result<(), FileCarrierError> {
+/// 
+/// Returns Node Id of contact
+pub fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path, duration: Duration) -> Result<String, FileCarrierError> {
     let hierarchy = FileCarrierHierarchy::new(&folder);
-
+    
     if !hierarchy.try_exists()? {
-        println!("Folder {} is not a file-carrier", folder.display());
         return Err(FileCarrierError::NotAFileCarrier(folder.to_path_buf()));
     }
 
@@ -48,7 +49,8 @@ pub fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path,
 
         aap_agent.send_config(msg)?;
 
-        println!("Connected to node {} for {} seconds", current_node, duration.as_secs());
+        println!("Connected to node {} for {} seconds", reaches[1], duration.as_secs());
+        println!("Reaches are: {}", reaches[1..].join(";"));
 
         let mut connected_file = File::create(hierarchy.connected_file())?;
         connected_file.write_all(reaches[1].as_bytes())?;
@@ -60,7 +62,10 @@ pub fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path,
     
     reaches_file.write_all(reaches_concat.as_bytes())?;
     
-    Ok(())
+    match reaches.get(1) {
+        Some(eid) => Ok(eid.clone()),
+        None => Err(FileCarrierError::FirstUser(folder.to_owned())),
+    }
 }
 
 #[cfg(test)]
