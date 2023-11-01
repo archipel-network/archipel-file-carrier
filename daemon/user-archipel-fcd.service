@@ -1,13 +1,11 @@
 [Unit]
 Description=Archipel File Carrier
-Requires=udisks2.service
 Requires=archipel-core.service
 
 [Service]
 Type=simple
 
-RuntimeDirectory=archipel-core
-ExecStart=/usr/share/archipel-fcd "${RUNTIME_DIRECTORY}/archipel-core.socket"
+ExecStart=/usr/share/archipel-fc/archipel-fcd "/run/user/%U/archipel-core/archipel-core.socket"
 Restart=on-failure
 
 [Install]
