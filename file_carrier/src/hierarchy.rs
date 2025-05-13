@@ -60,6 +60,14 @@ impl FileCarrierHierarchy {
     pub fn create_hierarchy(&self) -> io::Result<()> {
         create_dir_all(self.data.to_owned())?;
         File::create(self.reaches_file.to_owned())?;
+
+        let folder_perms = Permissions::from_mode(0o777);
+        fs::set_permissions(&self.root, folder_perms.clone())?;
+        fs::set_permissions(&self.data, folder_perms.clone())?;
+
+        let public_files_perms = Permissions::from_mode(0o666);
+        fs::set_permissions(&self.reaches_file, public_files_perms)?;
+
         Ok(())
     }
 
