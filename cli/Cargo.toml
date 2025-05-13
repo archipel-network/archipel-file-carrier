@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 file_carrier = { path = "../file_carrier" }
-ud3tn-aap = { git = "https://github.com/EpicKiwi/rust-ud3tn.git" }
 clap = { version = "4.3.24", features = ["derive"] }
 uuid = { version = "1.4.1", features = ["v4", "fast-rng"] }
+ud3tn-aap = { git = "https://github.com/EpicKiwi/rust-ud3tn.git", version = "0.2.2" }

@@ -1,4 +1,4 @@
-use std::{path::Path, time::{Duration, SystemTime}, io::BufReader, io::{Write, BufRead, Read}, fs::File};
+use std::{path::Path, time::{Duration, SystemTime}, io::BufReader, io::{Write, BufRead}, fs::File};
 use ud3tn_aap::{Agent, config::{Contact, ContactDataRate}};
 
 use crate::{hierarchy::FileCarrierHierarchy, error::FileCarrierError};
@@ -11,7 +11,7 @@ use crate::{hierarchy::FileCarrierHierarchy, error::FileCarrierError};
 /// * `duration` - The duration of the connection
 /// 
 /// Returns Node Id of contact
-pub fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path, duration: Duration) -> Result<String, FileCarrierError> {
+pub fn register_folder(aap_agent: &mut Agent, folder: &Path, duration: Duration) -> Result<String, FileCarrierError> {
     let hierarchy = FileCarrierHierarchy::new(&folder);
     
     if !hierarchy.try_exists()? {
@@ -70,7 +70,7 @@ pub fn register_folder<S: Read + Write>(aap_agent: &mut Agent<S>, folder: &Path,
 
 #[cfg(test)]
 mod tests {
-    use std::{env, fs, os::unix::net::UnixStream, time::Duration};
+    use std::{env, fs, path::Path, time::Duration};
     use crate::{init::initialize_file_carrier, hierarchy::FileCarrierHierarchy, register::register_folder};
 
     #[test]
@@ -79,8 +79,8 @@ mod tests {
         let fc = FileCarrierHierarchy::new(&current_dir);
         let _ = initialize_file_carrier(&current_dir);
 
-        let mut agent = ud3tn_aap::Agent::connect(
-            UnixStream::connect("/run/archipel-core/archipel-core.socket").expect("Unix stream connection failure"),
+        let mut agent = ud3tn_aap::Agent::connect_unix(
+            Path::new("/run/archipel-core/archipel-core.socket"),
             "file-carrier/105b4168-a93e-459b-8672-09509db759cc".to_owned(),
         )
         .expect("u3dtn agent connection failure");

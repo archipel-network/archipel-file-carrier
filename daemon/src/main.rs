@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     env,
     ops::DerefMut,
-    os::unix::net::UnixStream,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -133,7 +132,7 @@ type SharedInterfaceMap = Arc<Mutex<HashMap<OwnedObjectPath, String>>>;
 async fn interface_added_watcher(
     mut added_stream: InterfacesAddedStream<'_>,
     connection: Connection,
-    agent: Arc<Mutex<Agent<UnixStream>>>,
+    agent: Arc<Mutex<Agent>>,
     interfaces: SharedInterfaceMap,
 ) -> Result<()> {
     loop {
@@ -170,7 +169,7 @@ async fn interface_added_watcher(
 
 async fn interface_removed_watcher(
     mut removed_stream: InterfacesRemovedStream<'_>,
-    agent: Arc<Mutex<Agent<UnixStream>>>,
+    agent: Arc<Mutex<Agent>>,
     interfaces: SharedInterfaceMap,
 ) -> Result<()> {
     loop {
@@ -193,7 +192,7 @@ async fn interface_removed_watcher(
     }
 }
 
-async fn async_main(mut agent: Agent<UnixStream>) -> Result<()> {
+async fn async_main(mut agent: Agent) -> Result<()> {
     let interfaces = Arc::new(Mutex::new(HashMap::new()));
     let connection = Connection::system().await?;
 
@@ -241,8 +240,8 @@ fn main() {
 
     println!("Communicate through socket: {}", socket.display());
 
-    let agent = ud3tn_aap::Agent::connect(
-        UnixStream::connect(socket).expect("Unix stream connection failure"),
+    let agent = ud3tn_aap::Agent::connect_unix(
+        &socket,
         "file-carrier-daemon".to_owned(),
     )
     .expect("u3dtn agent connection failure");

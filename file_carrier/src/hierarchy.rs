@@ -1,4 +1,4 @@
-use std::{path::{Path, PathBuf}, io, fs::{create_dir_all, File}};
+use std::{fs::{self, create_dir_all, File, Permissions}, io, os::unix::fs::PermissionsExt, path::{Path, PathBuf}};
 
 pub struct FileCarrierHierarchy {
     root: PathBuf,
