@@ -9,4 +9,4 @@ edition = "2021"
 async-std = "1.12.0"
 file_carrier = { path = "../file_carrier" }
 zbus = "3.14.1"
-ud3tn-aap = { git = "https://github.com/EpicKiwi/rust-ud3tn.git", version = "0.2.2" }
+ud3tn-aap = { git = "https://github.com/EpicKiwi/rust-ud3tn.git", version = "1.0.0" }

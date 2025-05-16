@@ -1,5 +1,5 @@
 use std::{path::Path, time::{Duration, SystemTime}, io::BufReader, io::{Write, BufRead}, fs::File};
-use ud3tn_aap::{Agent, config::{Contact, ContactDataRate}};
+use ud3tn_aap::{config::{Contact, ContactDataRate}, AapStream, BaseAgent, RegisteredAgent};
 
 use crate::{hierarchy::FileCarrierHierarchy, error::FileCarrierError};
 
@@ -11,14 +11,14 @@ use crate::{hierarchy::FileCarrierHierarchy, error::FileCarrierError};
 /// * `duration` - The duration of the connection
 /// 
 /// Returns Node Id of contact
-pub fn register_folder(aap_agent: &mut Agent, folder: &Path, duration: Duration) -> Result<String, FileCarrierError> {
+pub fn register_folder<S: AapStream>(aap_agent: &mut RegisteredAgent<S>, folder: &Path, duration: Duration) -> Result<String, FileCarrierError> {
     let hierarchy = FileCarrierHierarchy::new(&folder);
     
     if !hierarchy.try_exists()? {
         return Err(FileCarrierError::NotAFileCarrier(folder.to_path_buf()));
     }
 
-    let current_node = aap_agent.node_eid.clone();
+    let current_node = aap_agent.node_id().to_owned();
     let mut reaches: Vec<String> = Vec::new();
 
     let file = File::open(hierarchy.reaches_file())?;
@@ -80,10 +80,11 @@ mod tests {
         let _ = initialize_file_carrier(&current_dir);
 
         let mut agent = ud3tn_aap::Agent::connect_unix(
-            Path::new("/run/archipel-core/archipel-core.socket"),
-            "file-carrier/105b4168-a93e-459b-8672-09509db759cc".to_owned(),
+            &Path::new("/run/archipel-core/archipel-core.socket"),
         )
-        .expect("u3dtn agent connection failure");
+            .expect("u3dtn agent connection failure")
+        .register("file-carrier/105b4168-a93e-459b-8672-09509db759cc".to_owned())
+            .expect("Failed to register agent");
 
         let res = register_folder(&mut agent, &current_dir, Duration::from_secs(300));
         

@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0.46"
-ud3tn-aap = {git = "https://github.com/EpicKiwi/rust-ud3tn.git"}
+ud3tn-aap = { git = "https://github.com/EpicKiwi/rust-ud3tn.git", version = "1.0.0" }

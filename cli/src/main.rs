@@ -52,14 +52,16 @@ fn main() {
             folder,
             duration,
         } => {
-            let mut agent = match ud3tn_aap::Agent::connect_unix(
-                &socket, format!("file-carrier/{}", &Uuid::new_v4().to_string())
-            ) {
-                Ok(a) => a,
-                Err(e) => {
-                    eprintln!("Failed to connect to node: {e}");
-                    process::exit(10);
-                }
+            let mut agent = match ud3tn_aap::Agent::connect_unix(&socket)
+                    .inspect_err(|e| eprintln!("Failed to connect to node: {e}"))
+                    .ok()
+                    .and_then(|a| 
+                        a.register(format!("file-carrier/{}", &Uuid::new_v4().to_string()))
+                            .inspect_err(|e| eprintln!("Failed register to node: {e}"))
+                            .ok()
+                    ) {
+                Some(a) => a,
+                None => process::exit(10)
             };
 
             match register_folder(&mut agent, folder, Duration::from_secs(*duration)) {
@@ -78,11 +80,16 @@ fn main() {
         Commands::Unregister { socket, folder } => {
 
             let mut agent = match ud3tn_aap::Agent::connect_unix(
-                &socket, format!("file-carrier/{}", &Uuid::new_v4().to_string())
+                &socket
+            ).inspect_err(|e| eprintln!("Failed to connect to node: {e}"))
+            .ok()
+            .and_then(|a| 
+                a.register(format!("file-carrier/{}", &Uuid::new_v4().to_string()))
+                    .inspect_err(|e| eprintln!("Failed register to node: {e}"))
+                    .ok()
             ) {
-                Ok(a) => a,
-                Err(e) => {
-                    eprintln!("Failed to connect to node: {e}");
+                Some(a) => a,
+                None => {
                     process::exit(10);
                 }
             };

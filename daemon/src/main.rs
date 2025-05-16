@@ -13,7 +13,7 @@ use async_std::{
     task::{self},
 };
 use file_carrier::{default_path, register::register_folder};
-use ud3tn_aap::Agent;
+use ud3tn_aap::{AapStream, RegisteredAgent};
 use zbus::{
     fdo::{InterfacesAddedStream, InterfacesRemovedStream, ObjectManagerProxy},
     zvariant::{self, OwnedObjectPath},
@@ -129,10 +129,10 @@ async fn startup_check(connection: &Connection) -> Result<Vec<(OwnedObjectPath, 
 
 type SharedInterfaceMap = Arc<Mutex<HashMap<OwnedObjectPath, String>>>;
 
-async fn interface_added_watcher(
+async fn interface_added_watcher<S: AapStream>(
     mut added_stream: InterfacesAddedStream<'_>,
     connection: Connection,
-    agent: Arc<Mutex<Agent>>,
+    agent: Arc<Mutex<RegisteredAgent<S>>>,
     interfaces: SharedInterfaceMap,
 ) -> Result<()> {
     loop {
@@ -167,9 +167,9 @@ async fn interface_added_watcher(
     }
 }
 
-async fn interface_removed_watcher(
+async fn interface_removed_watcher<S: AapStream>(
     mut removed_stream: InterfacesRemovedStream<'_>,
-    agent: Arc<Mutex<Agent>>,
+    agent: Arc<Mutex<RegisteredAgent<S>>>,
     interfaces: SharedInterfaceMap,
 ) -> Result<()> {
     loop {
@@ -192,7 +192,7 @@ async fn interface_removed_watcher(
     }
 }
 
-async fn async_main(mut agent: Agent) -> Result<()> {
+async fn async_main<S: AapStream + 'static>(mut agent: RegisteredAgent<S>) -> Result<()> {
     let interfaces = Arc::new(Mutex::new(HashMap::new()));
     let connection = Connection::system().await?;
 
@@ -242,9 +242,10 @@ fn main() {
 
     let agent = ud3tn_aap::Agent::connect_unix(
         &socket,
-        "file-carrier-daemon".to_owned(),
     )
-    .expect("u3dtn agent connection failure");
+        .expect("u3dtn agent connection failure")
+    .register("file-carrier-daemon".to_owned())
+        .expect("Failed to register agent");
 
     task::block_on(async_main(agent)).expect("Ca a foiré lol");
 }
