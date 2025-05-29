@@ -1,251 +1,193 @@
-use std::{
-    collections::HashMap,
-    env,
-    ops::DerefMut,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::Duration,
-};
+use std::{path::{Path, PathBuf}, time::Duration};
 
-use async_std::{
-    stream::StreamExt,
-    sync::Mutex,
-    task::{self},
-};
-use file_carrier::{default_path, register::register_folder};
-use ud3tn_aap::{AapStream, RegisteredAgent};
-use zbus::{
-    fdo::{InterfacesAddedStream, InterfacesRemovedStream, ObjectManagerProxy},
-    zvariant::{self, OwnedObjectPath},
-    Connection, Result,
-};
+use async_std::{channel::{self, Receiver, RecvError, Sender}, task};
+use disks::{DiskManager, IntoMountableDeviceError, MountableDevice};
+use file_carrier::{hierarchy::FileCarrierHierarchy, register::register_folder};
+use futures::{future::try_join_all, StreamExt};
+use ud3tn_aap::{AapStream, Agent, RegisteredAgent};
+use zbus::Connection;
+use clap::Parser;
 
-const SECONDS_IN_YEAR: u64 = 31556952;
+mod disks;
 
-mod udisks2 {
-    use std::collections::HashMap;
-    use zbus::{
-        dbus_proxy,
-        zvariant::{self, OwnedObjectPath},
-        Result,
+async fn async_main(cli: Cli) {
+
+    let config_agent = Agent::connect_unix(
+        Path::new("/run/archipel-core/archipel-core.socket")
+    )
+        .expect("Failed to connect to Archipel Core")
+        .register("file-carrier/config-daemon".to_owned())
+        .expect("Failed to register config agent");
+
+    let (agent_message_sender, agent_task) = {
+        let (sender, receiver) = channel::unbounded::<AgentMessage>();
+        let task = task::spawn(agent_task(receiver, config_agent));
+        (sender, task)
     };
 
-    #[dbus_proxy(
-        interface = "org.freedesktop.UDisks2.Manager",
-        default_service = "org.freedesktop.UDisks2",
-        default_path = "/org/freedesktop/UDisks2/Manager"
-    )]
-    trait Manager {
-        async fn get_block_devices(
-            &self,
-            options: &HashMap<String, zvariant::Value<'_>>,
-        ) -> Result<Vec<OwnedObjectPath>>;
-    }
+    let dbus = Connection::system().await
+        .expect("Failed to connect to dbus");
 
-    #[dbus_proxy(
-        interface = "org.freedesktop.UDisks2.Block",
-        default_service = "org.freedesktop.UDisks2"
-    )]
-    trait Block {
-        #[dbus_proxy(property)]
-        fn drive(&self) -> Result<OwnedObjectPath>;
-    }
+    let manager = DiskManager::new(&dbus).await
+        .expect("Failed to connect to udisks2");
 
-    #[dbus_proxy(
-        interface = "org.freedesktop.UDisks2.Filesystem",
-        default_service = "org.freedesktop.UDisks2"
-    )]
-    trait Filesystem {
-        async fn mount(&self, options: &HashMap<String, zvariant::Value<'_>>) -> Result<String>;
+    init_all_devices(&manager, agent_message_sender.clone(), cli.as_user.clone()).await
+        .expect("Failed to init all devices");
+    
+    let mut added_devices = manager.devices_added().await
+        .expect("Failed to watch added devices");
 
-        #[dbus_proxy(property)]
-        fn mount_points(&self) -> Result<Vec<Vec<u8>>>;
-    }
-
-    #[dbus_proxy(
-        interface = "org.freedesktop.UDisks2.Drive",
-        default_service = "org.freedesktop.UDisks2"
-    )]
-    trait Drive {
-        #[dbus_proxy(property)]
-        fn removable(&self) -> Result<bool>;
-    }
-}
-
-async fn get_mount_path(connection: &Connection, path: OwnedObjectPath) -> Result<String> {
-    let block_proxy = udisks2::BlockProxy::builder(&connection)
-        .path(path.clone())?
-        .build()
-        .await?;
-    let drive_path = block_proxy.drive().await?;
-    if *drive_path == "/" {
-        return Err(zbus::Error::Failure(
-            "No drive associated to this block device".into(),
-        ));
-    }
-
-    let filesystem_proxy = udisks2::FilesystemProxy::builder(&connection)
-        .path(path.clone())?
-        .build()
-        .await?;
-    let drive_proxy = udisks2::DriveProxy::builder(&connection)
-        .path(drive_path.clone())?
-        .build()
-        .await?;
-
-    if drive_proxy.removable().await? {
-        let mount_points = filesystem_proxy.mount_points().await?;
-        let mount_path = if mount_points.is_empty() {
-            filesystem_proxy
-                .mount(&HashMap::<String, zvariant::Value>::new())
-                .await?
-        } else {
-            String::from_utf8(mount_points[0].clone()).unwrap()
+    loop {
+        let Some(added_device) = added_devices.next().await else {
+            break
         };
 
-        Ok(mount_path)
-    } else {
-        return Err(zbus::Error::Failure("This drive is not removable".into()));
+        let device = match added_device.try_into_mountable().await {
+            Err(IntoMountableDeviceError::NotMountable) => continue,
+            Err(IntoMountableDeviceError::Dbus(e)) => panic!("Failed to get mountable device: {e}"),
+            Ok(d) => d
+        };
+
+        let Some(drive) = device.drive().await
+            .expect("Failed to get drive") else {
+            continue;
+        };
+
+        if !drive.removable().await.expect("Failed to check for removable drive") {
+            continue;
+        }
+
+        let device_id = device.id().await.unwrap();
+
+        match mount_and_register(device, agent_message_sender.clone(), cli.as_user.clone()).await {
+            Err(e) => {
+                eprintln!("Failed to mount and register device {}: {e}", device_id);
+                continue;
+            },
+            Ok(()) => {
+
+            }
+        };
+
+
     }
+
+    agent_message_sender.send(AgentMessage::Shutdown).await.unwrap();
+    agent_task.await;
 }
 
-async fn startup_check(connection: &Connection) -> Result<Vec<(OwnedObjectPath, String)>> {
-    // `dbus_proxy` macro creates `MyGreeterProxy` based on `Notifications` trait.
-    let manager_proxy = udisks2::ManagerProxy::new(connection).await?;
-    let reply = manager_proxy
-        .get_block_devices(&HashMap::<String, zvariant::Value>::new())
-        .await?;
+async fn init_all_devices<'a>(manager: &'a DiskManager<'a>, agent_message_sender: Sender<AgentMessage>, mount_as_user: Option<String>) -> Result<(), zbus::Error> {
 
-    let mut paths = Vec::new();
-    for object in reply {
-        match get_mount_path(connection, object.clone()).await {
-            Ok(path) => paths.push((object, path[..path.len()-1].to_owned())),
-            Err(_) => {}
+    let devices = manager.block_devices().await?;
+
+    let mountable_removable_drive = try_join_all(
+        devices.into_iter()
+            .map(async |device| {
+                let Some(drive) = device.drive().await? else {
+                    return Ok(None)
+                };
+
+                if !drive.removable().await? {
+                    return Ok(None)
+                }
+
+                match device.try_into_mountable().await {
+                    Ok(d) => Ok(Some(d)),
+                    Err(IntoMountableDeviceError::NotMountable) => Ok(None),
+                    Err(IntoMountableDeviceError::Dbus(e)) => Err(e)
+                }
+            })
+        ).await?.into_iter().filter_map(|it| it);
+
+    try_join_all(
+        mountable_removable_drive.map(async |device| {
+
+            let (mounted_by_us, mountpoint) = match device.mountpoints().await?.into_iter().next() {
+                Some(m) => (false, m),
+                None => (true, device.mount().await?)
+            };
+
+            match FileCarrierHierarchy::folder_is_file_carrier(&mountpoint) {
+                Ok(is_fc) => {
+                    if is_fc {
+                        device.unmount().await?;
+                        mount_and_register(device, agent_message_sender.clone(), mount_as_user.clone()).await?;
+                        return Ok(());
+                    }
+                },
+                Err(e) => eprintln!("Failed to open folder {}: {}", mountpoint.display(), e)
+            }
+            
+            println!("Device {} is not a file carrier", mountpoint.display());
+                
+            if mounted_by_us {
+                device.unmount().await?;
+            }
+
+            Ok::<_, zbus::Error>(())
+        })
+    ).await?;
+
+    Ok(())
+}
+
+async fn mount_and_register<'a>(device: MountableDevice<'a>, agent_message_sender: Sender<AgentMessage>, mount_as_user: Option<String>) -> Result<(), zbus::Error> {
+    println!("Should mount and register filecarrier in {:?}", device);
+
+    let mountpoint = match mount_as_user {
+        Some(username) => device.mount_as_user(&username).await?,
+        None => device.mount().await?
+    };
+
+    match FileCarrierHierarchy::folder_is_file_carrier(&mountpoint) {
+        Ok(is_fc) => {
+            if !is_fc {
+                device.unmount().await?;
+                println!("Device {} is not a file carrier", device.id().await.unwrap());
+                return Ok(());
+            }
+        },
+        Err(e) => eprintln!("Failed to open folder {}: {}", mountpoint.display(), e)
+    }
+
+    agent_message_sender.send(AgentMessage::Register(mountpoint)).await
+        .expect("Failed to send agent message");
+
+    Ok(())
+}
+
+enum AgentMessage {
+    Register(PathBuf),
+    Shutdown
+}
+
+async fn agent_task<T:AapStream>(receiver: Receiver<AgentMessage>, mut agent: RegisteredAgent<T>) {
+    loop {
+        match receiver.recv().await {
+            Ok(AgentMessage::Register(path)) => {
+                if let Err(e) = register_folder(
+                    &mut agent, &path, Duration::from_secs(10 * 25 * 3600)) {
+                    eprintln!("Failed to register folder {}: {}", path.display(), e)
+                } else {
+                    println!("Registered folder {} as file carrier", path.display());
+                }
+            },
+            Ok(AgentMessage::Shutdown) => return,
+            Err(RecvError) => return // Empty and closed channel (end of task)
         }
     }
-
-    Ok(paths)
 }
 
-type SharedInterfaceMap = Arc<Mutex<HashMap<OwnedObjectPath, String>>>;
-
-async fn interface_added_watcher<S: AapStream>(
-    mut added_stream: InterfacesAddedStream<'_>,
-    connection: Connection,
-    agent: Arc<Mutex<RegisteredAgent<S>>>,
-    interfaces: SharedInterfaceMap,
-) -> Result<()> {
-    loop {
-        if let Some(signal) = added_stream.next().await {
-            let args = signal.args()?;
-
-            if args
-                .interfaces_and_properties
-                .get("org.freedesktop.UDisks2.Filesystem")
-                .is_some()
-            {
-                let object_path = args.object_path.clone().into();
-                let mount_path = get_mount_path(&connection, args.object_path.into()).await?;
-                let path = Path::new(&mount_path).to_owned();
-
-                println!("Register folder: {mount_path}");
-
-                match register_folder(
-                    &mut agent.lock().await.deref_mut(),
-                    &path,
-                    Duration::from_secs(SECONDS_IN_YEAR),
-                ) {
-                    Ok(eid) => {
-                        interfaces.lock().await.insert(object_path, eid);
-                    }
-                    Err(err) => {
-                        eprintln!("{err}")
-                    }
-                }
-            }
-        };
-    }
-}
-
-async fn interface_removed_watcher<S: AapStream>(
-    mut removed_stream: InterfacesRemovedStream<'_>,
-    agent: Arc<Mutex<RegisteredAgent<S>>>,
-    interfaces: SharedInterfaceMap,
-) -> Result<()> {
-    loop {
-        if let Some(signal) = removed_stream.next().await {
-            let args = signal.args()?;
-            if let Some(eid) = interfaces
-                .lock()
-                .await
-                .remove(&args.object_path().clone().into())
-            {
-                let msg = ud3tn_aap::config::ConfigBundle::DeleteContact(eid.clone());
-                match agent.lock().await.send_config(msg) {
-                    Ok(_) => {println!("Disconnected from node {eid}")}
-                    Err(err) => {
-                        eprintln!("{err}")
-                    }
-                }
-            }
-        };
-    }
-}
-
-async fn async_main<S: AapStream + 'static>(mut agent: RegisteredAgent<S>) -> Result<()> {
-    let interfaces = Arc::new(Mutex::new(HashMap::new()));
-    let connection = Connection::system().await?;
-
-    for (object_path, path) in startup_check(&connection).await? {
-        match register_folder(
-            &mut agent,
-            Path::new(&path),
-            Duration::from_secs(SECONDS_IN_YEAR),
-        ) {
-            Ok(eid) => {
-                interfaces.lock().await.insert(object_path, eid);
-            }
-            Err(err) => {
-                eprintln!("{err} {path}");
-            }
-        }
-    }
-
-    let agent = Arc::new(Mutex::new(agent));
-
-    let object_manager_proxy = ObjectManagerProxy::builder(&connection)
-        .destination("org.freedesktop.UDisks2")?
-        .path("/org/freedesktop/UDisks2")?
-        .build()
-        .await?;
-    let removed_stream = object_manager_proxy.receive_interfaces_removed().await?;
-    let added_stream = object_manager_proxy.receive_interfaces_added().await?;
-
-    task::spawn(interface_added_watcher(
-        added_stream,
-        connection,
-        agent.clone(),
-        interfaces.clone(),
-    ));
-    interface_removed_watcher(removed_stream, agent, interfaces).await
-
-    // println!("{reply:?}");
+#[derive(Debug, Parser)]
+struct Cli {
+    /// Mount file carrier for the provided user instead of user currently running daemon
+    /// Useful if Archipel Core is not running as current user
+    #[arg(long)]
+    as_user: Option<String>
 }
 
 fn main() {
-    let socket = match env::args().skip(1).next() {
-        Some(value) => PathBuf::from(value),
-        None => default_path(),
-    };
+    let cli = Cli::parse();
 
-    println!("Communicate through socket: {}", socket.display());
-
-    let agent = ud3tn_aap::Agent::connect_unix(
-        &socket,
-    )
-        .expect("u3dtn agent connection failure")
-    .register("file-carrier-daemon".to_owned())
-        .expect("Failed to register agent");
-
-    task::block_on(async_main(agent)).expect("Ca a foiré lol");
+    task::block_on(async_main(cli))
 }
