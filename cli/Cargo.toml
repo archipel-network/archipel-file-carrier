@@ -1,7 +1,12 @@
 [package]
-name = "file-carrier"
+name = "archipelfc"
+description = "Command line utility to connect a folder to Archipel core"
 version = "0.1.0"
 edition = "2021"
+authors = [
+    "EpicKiwi <me@epickiwi.fr>",
+    "Coco"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,3 +15,13 @@ file_carrier = { path = "../file_carrier" }
 clap = { version = "4.3.24", features = ["derive"] }
 uuid = { version = "1.4.1", features = ["v4", "fast-rng"] }
 ud3tn-aap = { git = "https://github.com/EpicKiwi/rust-ud3tn.git", version = "1.0.0" }
+
+[package.metadata.deb]
+maintainer = "EpicKiwi <me@epickiwi.fr>"
+license-file = ["../LICENSE", "0"]
+depends = ["$auto", "archipel-core"]
+section = "net"
+priority = "optional"
+assets = [
+    ["target/release/archipelfc", "usr/bin/archipelfc", "755"],
+]

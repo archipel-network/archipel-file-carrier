@@ -6,7 +6,7 @@ Requires=archipel-core.service
 [Service]
 Type=simple
 
-ExecStart=/usr/share/archipel-fc/archipel-fcd "/run/archipel-core/archipel-core.socket"
+ExecStart=/usr/share/archipel-fc/archipel-fcd
 Restart=on-failure
 
 [Install]

@@ -1,7 +1,12 @@
 [package]
-name = "file-carrier-daemon"
+name = "archipelfc-daemon"
+description = "Daemon auto mounting and connecting removable drives to Archipel core"
 version = "0.1.0"
 edition = "2021"
+authors = [
+    "EpicKiwi <me@epickiwi.fr>",
+    "Coco"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,3 +17,15 @@ zbus = "5.7.0"
 futures = "0.3.31"
 ud3tn-aap = { git = "https://github.com/EpicKiwi/rust-ud3tn.git", version = "1.0.0" }
 clap = { version = "4.5.38", features = ["derive"] }
+
+[package.metadata.deb]
+maintainer = "EpicKiwi <me@epickiwi.fr>"
+license-file = ["../LICENSE", "0"]
+depends = ["$auto", "archipel-core", "udisks2"]
+recommends = ["archipelfc"]
+section = "net"
+priority = "optional"
+assets = [
+    ["target/release/archipelfc-daemon", "usr/bin/archipelfc-daemon", "755"],
+    ["archipelfc.service", "usr/lib/systemd/system/archipelfc.service", "444"]
+]
