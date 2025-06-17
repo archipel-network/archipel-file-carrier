@@ -5,8 +5,9 @@ Requires=archipel-core.service
 
 [Service]
 Type=simple
-
-ExecStart=/usr/share/archipel-fc/archipel-fcd
+User=archipel
+Group=archipel
+ExecStart=/usr/bin/archipelfc-daemon
 Restart=on-failure
 
 [Install]
