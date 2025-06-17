@@ -1,0 +1,11 @@
+polkit.addRule(function(action, subject) {
+	
+	const MOUNT_ACTIONS = [
+		"org.freedesktop.udisks2.filesystem-mount",
+		"org.freedesktop.udisks2.filesystem-mount-other-seat"
+	]
+
+    if (MOUNT_ACTIONS.indexOf(action.id) > -1 && subject.isInGroup("archipel")) {
+        return polkit.Result.YES;
+    }
+});
