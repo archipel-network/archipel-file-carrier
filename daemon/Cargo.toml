@@ -28,5 +28,5 @@ priority = "optional"
 assets = [
     ["target/release/archipelfc-daemon", "usr/bin/archipelfc-daemon", "755"],
     ["archipelfc.service", "usr/lib/systemd/system/archipelfc.service", "444"],
-    ["50-archipel-file-carrier.rules", "usr/share/polkit-1/rules.d/50-archipel-file-carrier.rules", 444]
+    ["50-archipel-file-carrier.rules", "usr/share/polkit-1/rules.d/50-archipel-file-carrier.rules", "444"]
 ]
